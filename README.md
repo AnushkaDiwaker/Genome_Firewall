@@ -129,34 +129,47 @@ make
 ```
 *Generates `genome_firewall` (or `genome_firewall.exe`) linking with `-pthread -O2`.*
 
-### 2. Execute — Standard Mode
+### 2. Execute — Standard CLI & Batch Mode
 ```bash
-# Default (Fuzzy + Multithreaded) with basic dataset:
-./genome_firewall sample.fasta markers.csv
+# Direct Interactive Terminal System (Default when run without arguments):
+./genome_firewall
 
-# Full real dataset — MDR E. coli vs 53-marker database:
+# Show usage and available command-line flags:
+./genome_firewall --help
+
+# Batch Mode — Full real dataset (MDR E. coli vs 54-marker database):
 ./genome_firewall --input sample_real.fasta --db markers_large.csv --fuzzy --async
 
 # Exact-only + serial (useful for deterministic debugging):
-./genome_firewall --input sample.fasta --db markers.csv --exact --serial
+./genome_firewall --input sample_real.fasta --db markers_large.csv --exact --serial
 ```
 
-### 3. Execute — Interactive REPL Shell
+### 3. Execute — Direct Interactive Terminal System
+Launch the interactive terminal system directly:
 ```bash
 ./genome_firewall --interactive
+# or simply:
+./genome_firewall
 ```
 
-Then use these REPL commands (or pipe from `repl_commands.txt`):
+The system provides both a numbered interactive menu and direct CLI commands:
 ```
-genome_firewall> status
-genome_firewall> load_db markers_large.csv
-genome_firewall> scan sample_real.fasta
-genome_firewall> set_fuzzy on
-genome_firewall> set_conf 70.0
-genome_firewall> exit
+========================================================================
+         DIRECT TERMINAL TEST SYSTEM - INTERACTIVE COMMANDS
+========================================================================
+  [1] scan [filepath]        : Zero-Copy Memory-Mapped FASTA scan & test scores
+  [2] scan_seq [nucleotides] : Test raw DNA sequence directly in terminal
+  [3] query [kmer]           : 4-ary Prefix Trie & Bloom Filter diagnostics
+  [4] mmap [filepath]        : Virtual memory-map & I/O throughput audit
+  [5] scores / features      : Inspect test scores & Binary Feature Vector X
+  [6] config                 : Interactive system feature configuration wizard
+  [7] demo                   : Quick benchmark scan on sample_real.fasta
+  [8] status                 : Architecture telemetry & memory allocation
+  [9] exit                   : Terminate terminal session
+========================================================================
 ```
 
-You can also pipe the demo session:
+You can enter commands interactively or pipe commands from `repl_commands.txt`:
 ```bash
 ./genome_firewall --interactive < repl_commands.txt
 ```
