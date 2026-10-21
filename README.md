@@ -242,10 +242,14 @@ make
 
 ### 2. Run the Verification Test Suite
 ```powershell
+# Windows (MinGW):
 mingw32-make test
+
+# Linux / macOS:
+make test
 ```
 
-### 3. Command-Line Options
+### 3. Command-Line Options & Batch Mode
 ```
 Usage: genome_firewall --input <genome.fasta> --db <markers.csv> [options]
        genome_firewall --interactive
@@ -259,26 +263,75 @@ Options:
   --serial              Run single-threaded sequential scoring
   --confidence <val>    Set prediction confidence threshold percentage (default: 75.0)
   --interactive         Launch interactive REPL terminal session
+  --help, -h            Display formatted usage instructions
 ```
 
-### 4. Windows One-Click Fast Scanner
+**Examples:**
+```bash
+# Direct Interactive Terminal System (Default when run without arguments):
+./genome_firewall
+
+# Show usage and available command-line flags:
+./genome_firewall --help
+
+# Batch Mode — Full real dataset (MDR E. coli vs 54-marker database):
+./genome_firewall --input data/sample_real.fasta --db data/markers_card_top.csv --fuzzy --async
+
+# Exact-only + serial (useful for deterministic debugging):
+./genome_firewall --input data/sample_real.fasta --db data/markers_card_top.csv --exact --serial
+```
+
+### 4. Direct Interactive Terminal System (REPL)
+Launch the interactive terminal system directly:
+```bash
+./genome_firewall --interactive
+# or simply run with no arguments:
+./genome_firewall
+```
+
+The system provides both a numbered interactive menu and direct CLI commands:
+```
+========================================================================
+         DIRECT TERMINAL TEST SYSTEM - INTERACTIVE COMMANDS
+========================================================================
+  [1] scan [filepath]        : Zero-Copy Memory-Mapped FASTA scan & test scores
+  [2] scan_seq [nucleotides] : Test raw DNA sequence directly in terminal
+  [3] query [kmer]           : 4-ary Prefix Trie & Bloom Filter diagnostics
+  [4] mmap [filepath]        : Virtual memory-map & I/O throughput audit
+  [5] scores / features      : Inspect test scores & Binary Feature Vector X
+  [6] config                 : Interactive system feature configuration wizard
+  [7] demo                   : Quick benchmark scan on sample_real.fasta
+  [8] status                 : Architecture telemetry & memory allocation
+  [9] exit                   : Terminate terminal session
+========================================================================
+```
+
+**Available Commands in REPL:**
+- `menu`                   : Display the numbered interactive options menu
+- `scan [filepath]`        : Run Zero-Copy memory-mapped scan on a FASTA file
+- `scan_seq [nucleotides]` : Test a raw DNA sequence directly in the terminal
+- `query [kmer]`           : Test a k-mer against Bloom filter & 4-ary Trie
+- `mmap [filepath]`        : Inspect OS memory mapping & chunking telemetry
+- `scores / features`      : Inspect last scan test scores & binary feature vector
+- `config`                 : Enter interactive feature configuration wizard
+- `load_db <filepath>`     : Dynamically load/swap AMR reference CSV catalog
+- `set_fuzzy <on|off>`     : Toggle mutation tolerance (Hamming <= 1 matching)
+- `set_async <on|off>`     : Toggle multithreading concurrency (native threads)
+- `set_conf <value>`       : Set prediction confidence threshold (e.g. 75.0)
+- `status`                 : Display current memory, trie, and feature status
+- `demo`                   : Execute quick scan of sample_real.fasta demo genome
+- `help`                   : Display available commands
+- `exit / quit`            : Quit interactive session
+
+You can enter commands interactively or pipe commands from `repl_commands.txt`:
+```bash
+./genome_firewall --interactive < repl_commands.txt
+```
+
+### 5. Windows One-Click Fast Scanner
 ```powershell
 .\firewall-scan.bat data\sample_real.fasta
 ```
-
-### 5. Interactive REPL Terminal
-```powershell
-.\genome_firewall.exe --interactive
-```
-Commands available inside the REPL:
-- `load_db <filepath>` : Dynamically load or swap the reference AMR catalog
-- `scan <fasta_file>`  : Execute full zero-copy scan on target genome
-- `set_fuzzy <on|off>` : Toggle mutation-tolerant Hamming Distance matching
-- `set_async <on|off>` : Toggle multithreaded concurrent scoring
-- `set_conf <value>`   : Adjust confidence threshold percentage
-- `status`             : Inspect system telemetry, Trie node count, and memory
-- `help`               : Display available commands
-- `exit`               : Quit interactive session
 
 ---
 
