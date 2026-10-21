@@ -32,7 +32,7 @@ struct AsyncTask {
     }
 };
 
-// Win32 CRITICAL_SECTION wrapper (replaces std::mutex)
+// Win32 CRITICAL_SECTION wrapper
 struct WinMutex {
     CRITICAL_SECTION cs;
     WinMutex()  { InitializeCriticalSection(&cs); }
@@ -48,7 +48,7 @@ struct WinLockGuard {
 };
 
 #else
-// POSIX fallback (Linux/macOS) — use pthreads directly
+// POSIX fallback (Linux/macOS)
 #include <pthread.h>
 
 struct AsyncTask {
@@ -92,12 +92,12 @@ public:
     void processSequenceChunkAsync(const std::string& sequence, size_t kmerLength);
     void waitForAsyncTasks();
 
-    // Get the generated Binary Feature Vector X (1 = present, 0 = absent)
+    // Get generated Binary Feature Vector X (1 = present, 0 = absent)
     std::vector<int> getBinaryFeatureVector() const;
 
-    int getResistanceScore() const { return resistanceScore.load(); }
-    int getExactHits()       const { return exactMatches.load(); }
-    int getMutatedHits()     const { return mutatedMatches.load(); }
+    int getResistanceScore() const { return resistanceScore.load(std::memory_order_relaxed); }
+    int getExactHits()       const { return exactMatches.load(std::memory_order_relaxed); }
+    int getMutatedHits()     const { return mutatedMatches.load(std::memory_order_relaxed); }
 
     PredictorEngine& getPredictor()             { return predictor; }
     const PredictorEngine& getPredictor() const { return predictor; }
