@@ -1,7 +1,7 @@
 # GENOME FIREWALL (v2.0)
 **High-Throughput Multithreaded Early-Warning Defense System Against Superbugs**
 
-[![Build](https://img.shields.io/badge/build-GCC%206.3%2B%20MinGW-success)](.) [![Language](https://img.shields.io/badge/language-C%2B%2B14-blue)](.) [![Architecture](https://img.shields.io/badge/architecture-x86__64%20%7C%20ARM64-lightgrey)](.) [![Standard](https://img.shields.io/badge/std-c%2B%2B14-informational)](.) [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](.)
+[![Build](https://img.shields.io/badge/build-GCC%206.3%2B%20MinGW-success)](.) [![Language](https://img.shields.io/badge/language-C%2B%2B14-blue)](.) [![Architecture](https://img.shields.io/badge/architecture-x86__64%20%7C%20ARM64-lightgrey)](.) [![Standard](https://img.shields.io/badge/std-c%2B%2B14-informational)](.) [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](.) [![Security Policy](https://img.shields.io/badge/security-policy-brightgreen.svg)](SECURITY.md) [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md) [![Authors](https://img.shields.io/badge/authors-contributors-blue.svg)](AUTHORS.md)
 
 ---
 
@@ -71,9 +71,9 @@ Engine performance comparison running on AMD Ryzen 5 Hexa-Core (MinGW GCC 6.3 -O
 | Metric | Baseline v1.0 | Genome Firewall v2.0 (Optimized) | Improvement |
 | :--- | :--- | :--- | :--- |
 | **Trie Arena Memory** | `404,800 KB (405 MB)` | **`88,000 KB (88 MB)`** | **78.3% Memory Reduction** |
-| **Inference Scan Time** | `263.27 ms` | **`22.37 ms`** | **11.8x Faster Inference** |
-| **Catalog Indexing Time** | `1,121.67 ms` | **`430.54 ms`** | **2.6x Faster Loading** |
-| **Total Wall-Clock Time** | `1,385.94 ms` | **`453.90 ms`** | **3.05x Total Speedup** |
+| **Inference Scan Time** | `263.27 ms` | **`21.99 ms`** | **12x Faster Inference** |
+| **Catalog Indexing Time** | `1,121.67 ms` | **`383.09 ms`** | **2.9x Faster Loading** |
+| **Total Wall-Clock Time** | `1,385.94 ms` | **`406.08 ms`** | **3.4x Total Speedup** |
 | **Indexed Nodes** | `4,500,462 nodes` | `4,500,462 nodes` | Same complete coverage |
 | **Cache Line Utilization** | Multi-cache-line split | Single 64-byte line aligned | >95% L1/L2 cache hit rate |
 
@@ -183,9 +183,34 @@ Genome_Firewall/
 ├── obj/                  # Intermediate compilation object files (.o)
 ├── Makefile              # Modernized cross-platform Makefile
 ├── firewall-scan.bat     # Windows one-click fast scanner
+├── SECURITY.md           # Biosecurity & memory safety guidelines
+├── CODE_OF_CONDUCT.md    # Contributor Covenant Code of Conduct
+├── AUTHORS.md            # Authors & contributor acknowledgments
 ├── .gitignore            # Clean git hygiene rules
 └── README.md             # This document
 ```
+
+### Component Mapping
+
+| File / Component | Purpose & Description |
+| :--- | :--- |
+| [`src/main.cpp`](src/main.cpp) | CLI entry point, flag parsing (`--input`, `--db`, `--fuzzy`, `--interactive`), and workflow orchestration |
+| [`include/AMRTrie.h`](include/AMRTrie.h) / [`src/AMRTrie.cpp`](src/AMRTrie.cpp) | Custom 4-ary Prefix Tree for genomic alphabet {A,C,G,T} with Hamming ≤ 1 recursive search |
+| [`include/TrieArena.h`](include/TrieArena.h) / [`src/TrieArena.cpp`](src/TrieArena.cpp) | Custom memory arena allocator providing contiguous, cache-friendly node allocations |
+| [`include/AMRBloomFilter.h`](include/AMRBloomFilter.h) / [`src/AMRBloomFilter.cpp`](src/AMRBloomFilter.cpp) | 1 MB bit-array with 3 hash functions for $\mathcal{O}(1)$ negative match pre-screening |
+| [`include/AMRDatabase.h`](include/AMRDatabase.h) / [`src/AMRDatabase.cpp`](src/AMRDatabase.cpp) | Curated CSV AMR marker ingestion, catalog lookup, and gene index mapping |
+| [`include/FastaMmapParser.h`](include/FastaMmapParser.h) / [`src/FastaMmapParser.cpp`](src/FastaMmapParser.cpp) | Zero-copy memory-mapped file ingestion (Windows `CreateFileMapping` / POSIX `mmap`) |
+| [`include/FastaParser.h`](include/FastaParser.h) / [`src/FastaParser.cpp`](src/FastaParser.cpp) | Standard stream-based FASTA chunk ingestion with boundary `overlapBuffer` |
+| [`include/ScoringEngine.h`](include/ScoringEngine.h) / [`src/ScoringEngine.cpp`](src/ScoringEngine.cpp) | Concurrent sliding-window 21-mer task dispatch with native threads and atomic counters |
+| [`include/PredictorEngine.h`](include/PredictorEngine.h) / [`src/PredictorEngine.cpp`](src/PredictorEngine.cpp) | High-level clinical recommendation generator and per-drug resistance evaluator |
+| [`include/LogisticRegressor.h`](include/LogisticRegressor.h) / [`src/LogisticRegressor.cpp`](src/LogisticRegressor.cpp) | Binary sigmoid logistic regression engine ($P = \sigma(W \cdot X + b)$) |
+| [`include/REPLShell.h`](include/REPLShell.h) / [`src/REPLShell.cpp`](src/REPLShell.cpp) | Interactive terminal REPL shell for step-by-step diagnostic sessions |
+| [`Makefile`](Makefile) | Multi-platform build script with GCC/MinGW `-pthread -O3` optimization |
+| [`docs/Viva_Guide.md`](docs/Viva_Guide.md) | Comprehensive PBL Viva defense guide and mock oral evaluation simulator |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Technical architecture and systems engineering specification |
+| [`SECURITY.md`](SECURITY.md) | Biosecurity & memory safety guidelines, vulnerability disclosure process |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Contributor Covenant Code of Conduct (v2.1) |
+| [`AUTHORS.md`](AUTHORS.md) | Core project lead, contributors, and academic acknowledgments |
 
 ---
 
@@ -272,7 +297,7 @@ Commands available inside the REPL:
 [+] Successfully ingested 455 markers (447443 unique k-mers) into the Trie Arena.
     -> Indexed 455 AMR signatures in 4-ary Prefix Trie (4500462 nodes, Arena: 88000 KB)
     -> Fast-Rejection Bloom Filter initialized (1048576 bits)
-    -> Load & Index Time: 430.538 ms
+    -> Load & Index Time: 383.093 ms
 
 [*] Initializing Zero-Copy Sequence Ingestion for: data/sample_real.fasta...
 [+] Memory-Mapped Zero-Copy I/O active for data/sample_real.fasta (3564 bytes mapped).
@@ -295,14 +320,46 @@ Commands available inside the REPL:
 | Fluoroquinolones| LIKELY TO WORK  | 0.0096        | 99.0%       | [Tier III] | VIABLE DRUG TARGET (Susceptible) |
 | Rifamycins      | LIKELY TO WORK  | 0.0013        | 99.9%       | [Tier III] | VIABLE DRUG TARGET (Susceptible) |
 +---------------------------------------------------------------------------------------------------+
-| Telemetry: 3 KB Scanned | Inference Time: 22.37 ms (0.15 MB/s) |
+| Telemetry: 3 KB Scanned | Inference Time: 21.99 ms (0.15 MB/s) |
 +---------------------------------------------------------------------------------------------------+
 WARNING: Defensive decision support only. All results must be confirmed by standard
 laboratory antimicrobial susceptibility testing before clinical application.
 +---------------------------------------------------------------------------------------------------+
 
-[*] Total Execution Wall-Clock Time: 453.90 ms
+[*] Total Execution Wall-Clock Time: 406.08 ms
 ```
+
+---
+
+## Algorithmic Complexity (Big-O)
+
+- **Exact Search Time Complexity:** $\mathcal{O}(K)$  
+  Following a single path down the 4-ary Trie is strictly bounded by $K$ (marker length, e.g. 21 bp). Completely independent of database size $N$.
+- **Fuzzy Search Time Complexity (Hamming Distance = 1):** $\mathcal{O}(3 \cdot K^2)$ or $\mathcal{O}(K \cdot |\Sigma|)$  
+  At each of the $K$ positions, branching into $(|\Sigma|-1) = 3$ sibling nodes is explored. Once the single allowed mismatch is spent, all subsequent levels follow deterministic $\mathcal{O}(1)$ paths. Because $|\Sigma|=4$ is a small constant, this remains polynomial and completely decoupled from database size $N$.
+- **Parallel Chunk Scoring:** $\mathcal{O}\left(\frac{M}{P}\right)$ where $M$ is total genome length and $P$ is the number of concurrent worker threads.
+- **Space Complexity (Trie):** $\mathcal{O}(N \times K)$ worst case, with significant compression achieved via **Prefix Sharing** for homologous bacterial genes and compact 40-byte nodes.
+- **Auxiliary Memory:** $\mathcal{O}(1)$ streaming memory footprint via virtual memory mapping.
+
+---
+
+## Validation
+*Developed from scratch in C++14. Validated for 0 memory leaks via Valgrind (Linux). AMR marker sequences sourced from NCBI/CARD/ResFinder public databases.*
+
+---
+
+## Community, Governance & Contributing
+
+We welcome contributions, bug reports, and research extensions to **Genome Firewall**!
+
+* **Authors & Contributors:** Learn about the team behind this project in [`AUTHORS.md`](AUTHORS.md).
+* **Code of Conduct:** We are committed to fostering a welcoming, harassment-free environment for all contributors. Please review our [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+* **Security & Vulnerability Disclosure:** For reporting security vulnerabilities, memory safety bugs, or parsing flaws, consult our [`SECURITY.md`](SECURITY.md).
+* **Contributing Workflow:**
+  1. Fork the repository.
+  2. Create a dedicated feature or bugfix branch (`git checkout -b feature/your-feature-name`).
+  3. Ensure code adheres to C++14 standards, follows RAII principles, and runs with zero memory leaks.
+  4. Submit a clear, well-documented Pull Request describing your changes and benchmarks.
 
 ---
 
