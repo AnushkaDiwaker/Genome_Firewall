@@ -2,7 +2,7 @@
 #include <iostream>
 
 // ---------------------------------------------------------------------------
-// Thread entry point — called by CreateThread / pthread_create
+// Thread entry point called by CreateThread / pthread_create
 // ---------------------------------------------------------------------------
 
 #ifdef _WIN32
@@ -35,12 +35,12 @@ ScoringEngine::ScoringEngine(const AMRTrie& trie, const AMRDatabase& db,
     if (numRecords == 0) numRecords = 10;
     featureVectorAtomics = std::vector<std::atomic<int>>(numRecords);
     for (auto& atom : featureVectorAtomics) {
-        atom.store(0);
+        atom.store(0, std::memory_order_relaxed);
     }
 }
 
 // ---------------------------------------------------------------------------
-// Sequential chunk processing
+// High-Throughput Single-Pass Chunk Processing
 // ---------------------------------------------------------------------------
 
 void ScoringEngine::processSequenceChunk(const std::string& sequence, size_t kmerLength) {
@@ -50,45 +50,58 @@ void ScoringEngine::processSequenceChunk(const std::string& sequence, size_t kme
     int localMutated = 0;
 
     const auto& records = amrDb.getRecords();
+    const size_t numRecords = records.size();
 
-    for (size_t i = 0; i <= sequence.length() - kmerLength; ++i) {
+    std::unordered_map<std::string, int> localDirectHits;
+    std::unordered_map<std::string, int> localMutatedHits;
+    std::unordered_map<std::string, bool> localTargetIntegrity;
+
+    const size_t maxI = sequence.length() - kmerLength;
+    for (size_t i = 0; i <= maxI; ++i) {
         std::string kmer = sequence.substr(i, kmerLength);
 
-        std::string meta;
-        if (amrTrie.searchExact(kmer, &meta)) {
+        int recordIdx = -1;
+        // Fast-path exact match with Bloom filter pre-check
+        if (amrTrie.searchExact(kmer, &recordIdx)) {
             localExact++;
-
-            // Map detected k-mer to index in Binary Feature Vector X
-            for (size_t idx = 0; idx < records.size(); ++idx) {
-                if (records[idx].sequence.find(kmer) != std::string::npos ||
-                    (!meta.empty() && meta.find(records[idx].markerId) != std::string::npos)) {
-                    featureVectorAtomics[idx].store(1);
+            if (recordIdx >= 0 && static_cast<size_t>(recordIdx) < numRecords) {
+                featureVectorAtomics[recordIdx].store(1, std::memory_order_relaxed);
+                const auto& rec = records[recordIdx];
+                if (rec.recordType == "TargetGene") {
+                    localTargetIntegrity[rec.targetDrug] = true;
+                } else {
+                    localDirectHits[rec.targetDrug]++;
                 }
             }
-        } else if (fuzzyMatchEnabled && amrTrie.searchWithMismatch(kmer, 1, &meta)) {
+        } else if (fuzzyMatchEnabled && amrTrie.searchWithMismatch(kmer, 1, &recordIdx)) {
             localMutated++;
-
-            for (size_t idx = 0; idx < records.size(); ++idx) {
-                if (!meta.empty() && meta.find(records[idx].markerId) != std::string::npos) {
-                    featureVectorAtomics[idx].store(1);
+            if (recordIdx >= 0 && static_cast<size_t>(recordIdx) < numRecords) {
+                featureVectorAtomics[recordIdx].store(1, std::memory_order_relaxed);
+                const auto& rec = records[recordIdx];
+                if (rec.recordType != "TargetGene") {
+                    localMutatedHits[rec.targetDrug]++;
                 }
             }
         }
     }
 
-    predictor.analyzeSequenceFeatures(sequence, kmerLength, fuzzyMatchEnabled);
-
-    if (localExact   > 0) exactMatches.fetch_add(localExact);
-    if (localMutated > 0) mutatedMatches.fetch_add(localMutated);
+    if (localExact   > 0) exactMatches.fetch_add(localExact, std::memory_order_relaxed);
+    if (localMutated > 0) mutatedMatches.fetch_add(localMutated, std::memory_order_relaxed);
 
     int localScore = localExact + localMutated;
     if (localScore > 0) {
-        resistanceScore.fetch_add(localScore);
+        resistanceScore.fetch_add(localScore, std::memory_order_relaxed);
+    }
+
+    // Merge thread-local hits into predictor under mutex
+    {
+        WinLockGuard lock(tasksMutex);
+        predictor.mergeHits(localDirectHits, localMutatedHits, localTargetIntegrity, localExact, localMutated);
     }
 }
 
 // ---------------------------------------------------------------------------
-// Async chunk dispatch — spawns a native OS thread per chunk
+// Async Chunk Dispatcher (spawns native OS thread per chunk)
 // ---------------------------------------------------------------------------
 
 void ScoringEngine::processSequenceChunkAsync(const std::string& sequence, size_t kmerLength) {
@@ -100,7 +113,6 @@ void ScoringEngine::processSequenceChunkAsync(const std::string& sequence, size_
     AsyncTask at;
     at.hThread = CreateThread(NULL, 0, ScoringEngine::threadEntry, task, 0, NULL);
     if (at.hThread == NULL) {
-        // Fallback to synchronous if thread creation fails
         delete task;
         processSequenceChunk(sequence, kmerLength);
         return;
@@ -119,28 +131,24 @@ void ScoringEngine::processSequenceChunkAsync(const std::string& sequence, size_
 #endif
 }
 
-// ---------------------------------------------------------------------------
-// Wait for all spawned threads to complete
-// ---------------------------------------------------------------------------
-
 void ScoringEngine::waitForAsyncTasks() {
-    WinLockGuard lock(tasksMutex);
-    for (auto& task : asyncTasks) {
-        if (task.valid()) {
-            task.get();
-        }
+    std::vector<AsyncTask> tasksToWait;
+    {
+        WinLockGuard lock(tasksMutex);
+        tasksToWait = std::move(asyncTasks);
+        asyncTasks.clear();
     }
-    asyncTasks.clear();
+
+    for (auto& task : tasksToWait) {
+        task.get();
+    }
 }
 
-// ---------------------------------------------------------------------------
-// Extract the binary feature vector (thread-safe atomic loads)
-// ---------------------------------------------------------------------------
-
 std::vector<int> ScoringEngine::getBinaryFeatureVector() const {
-    std::vector<int> result(featureVectorAtomics.size());
-    for (size_t i = 0; i < featureVectorAtomics.size(); ++i) {
-        result[i] = featureVectorAtomics[i].load();
+    std::vector<int> result;
+    result.reserve(featureVectorAtomics.size());
+    for (const auto& atom : featureVectorAtomics) {
+        result.push_back(atom.load(std::memory_order_relaxed));
     }
     return result;
 }
