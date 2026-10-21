@@ -1,7 +1,7 @@
 # GENOME FIREWALL (v2.0.0)
 **Multithreaded High-Throughput Early-Warning Defense System Against Superbugs**
 
-[![Build](https://img.shields.io/badge/build-GCC%206.3%20MinGW-success)](.) [![Language](https://img.shields.io/badge/language-C%2B%2B14-blue)](.) [![Standard](https://img.shields.io/badge/std-c%2B%2B14-informational)](.) [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](.)
+[![Build](https://img.shields.io/badge/build-GCC%206.3%20MinGW-success)](.) [![Language](https://img.shields.io/badge/language-C%2B%2B14-blue)](.) [![Standard](https://img.shields.io/badge/std-c%2B%2B14-informational)](.) [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](.) [![Security Policy](https://img.shields.io/badge/security-policy-brightgreen.svg)](SECURITY.md) [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md) [![Authors](https://img.shields.io/badge/authors-contributors-blue.svg)](AUTHORS.md)
 
 ---
 
@@ -73,6 +73,30 @@ The system is modularized into three core engines, heavily leveraging Object-Ori
    - **Logistic Regression Predictor:** `P = σ(W·X + b)` per-drug with pre-calibrated weights
    - **High-Resolution Telemetry:** `<chrono>` profiling down to microsecond precision
    - **Automated Report Export:** Formatted ASCII decision tables with throughput metrics
+
+---
+
+## 📂 Repository Structure
+
+| File / Component | Purpose & Description |
+| :--- | :--- |
+| [`main.cpp`](main.cpp) | CLI entry point, flag parsing (`--input`, `--db`, `--fuzzy`, `--interactive`), and workflow orchestration |
+| [`AMRTrie.h`](AMRTrie.h) / [`.cpp`](AMRTrie.cpp) | Custom 4-ary Prefix Tree for genomic alphabet {A,C,G,T} with Hamming ≤ 1 recursive search |
+| [`TrieArena.h`](TrieArena.h) / [`.cpp`](TrieArena.cpp) | Custom memory arena allocator providing contiguous, cache-friendly node allocations |
+| [`AMRBloomFilter.h`](AMRBloomFilter.h) / [`.cpp`](AMRBloomFilter.cpp) | 1 MB bit-array with 3 hash functions for $O(1)$ negative match pre-screening |
+| [`AMRDatabase.h`](AMRDatabase.h) / [`.cpp`](AMRDatabase.cpp) | Curated CSV AMR marker ingestion, catalog lookup, and gene index mapping |
+| [`FastaMmapParser.h`](FastaMmapParser.h) / [`.cpp`](FastaMmapParser.cpp) | Zero-copy memory-mapped file ingestion (Windows `CreateFileMapping` / POSIX `mmap`) |
+| [`FastaParser.h`](FastaParser.h) / [`.cpp`](FastaParser.cpp) | Standard stream-based FASTA chunk ingestion with boundary `overlapBuffer` |
+| [`ScoringEngine.h`](ScoringEngine.h) / [`.cpp`](ScoringEngine.cpp) | Concurrent sliding-window 21-mer task dispatch with `std::async` and atomic counters |
+| [`PredictorEngine.h`](PredictorEngine.h) / [`.cpp`](PredictorEngine.cpp) | High-level clinical recommendation generator and per-drug resistance evaluator |
+| [`LogisticRegressor.h`](LogisticRegressor.h) / [`.cpp`](LogisticRegressor.cpp) | Binary sigmoid logistic regression engine ($P = \sigma(W \cdot X + b)$) |
+| [`ProteomeTranslator.h`](ProteomeTranslator.h) / [`.cpp`](ProteomeTranslator.cpp) | 6-frame genomic translation converting nucleotide codons into amino acid chains |
+| [`REPLShell.h`](REPLShell.h) / [`.cpp`](REPLShell.cpp) | Interactive terminal REPL shell for step-by-step diagnostic sessions |
+| [`Makefile`](Makefile) | Multi-platform build script with GCC/MinGW `-pthread -O2` optimization |
+| [`docs/Viva_Guide.md`](docs/Viva_Guide.md) | Comprehensive PBL Viva defense guide and mock oral evaluation simulator |
+| [`SECURITY.md`](SECURITY.md) | Biosecurity & memory safety guidelines, vulnerability disclosure process |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Contributor Covenant Code of Conduct (v2.1) |
+| [`AUTHORS.md`](AUTHORS.md) | Core project lead, contributors, and academic acknowledgments |
 
 ---
 
@@ -188,3 +212,19 @@ You can also pipe the demo session:
 
 ## 🧪 Validation
 *Developed from scratch in C++14. Validated for 0 memory leaks via Valgrind (Linux). AMR marker sequences sourced from NCBI/CARD/ResFinder public databases.*
+
+---
+
+## 👥 Community, Governance & Contributing
+
+We welcome contributions, bug reports, and research extensions to **Genome Firewall**!
+
+* **Authors & Contributors:** Learn about the team behind this project in [`AUTHORS.md`](AUTHORS.md).
+* **Code of Conduct:** We are committed to fostering a welcoming, harassment-free environment for all contributors. Please review our [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+* **Security & Vulnerability Disclosure:** For reporting security vulnerabilities, memory safety bugs, or parsing flaws, consult our [`SECURITY.md`](SECURITY.md).
+* **Contributing Workflow:**
+  1. Fork the repository.
+  2. Create a dedicated feature or bugfix branch (`git checkout -b feature/your-feature-name`).
+  3. Ensure code adheres to C++14 standards, follows RAII principles, and runs with zero memory leaks.
+  4. Submit a clear, well-documented Pull Request describing your changes and benchmarks.
+
