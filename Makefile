@@ -8,8 +8,8 @@ CXXFLAGS = -std=c++14 -O3 -pthread \
            -Wno-shift-count-overflow \
            -Iinclude
 
-# MinGW uses -mthreads (native Win32 threading); Linux/macOS uses -pthread
-LDFLAGS  = -mthreads
+# Statically link libgcc and libstdc++ so the executable runs standalone on any Windows machine
+LDFLAGS  = -pthread -static -static-libgcc -static-libstdc++
 
 SRCDIR   = src
 INCDIR   = include
@@ -42,11 +42,11 @@ $(OBJDIR):
 	-mkdir $(OBJDIR) 2>NUL || mkdir -p $(OBJDIR)
 
 clean:
-	-del /Q $(OBJDIR)\*.o 2>NUL
-	-del /Q $(TARGET).exe 2>NUL
+	-del /Q $(OBJDIR)\*.o 2>NUL || rm -f $(OBJDIR)/*.o
+	-del /Q $(TARGET).exe $(TARGET) 2>NUL || rm -f $(TARGET).exe $(TARGET)
 
 test: $(TARGET)
 	@echo [*] Running Verification Test on CARD Top Markers and Sample Genome...
-	$(TARGET) --input data/sample_real.fasta --db data/markers_card_top.csv
+	./$(TARGET) --input data/sample_real.fasta --db data/markers_card_top.csv
 
 .PHONY: all clean test

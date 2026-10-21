@@ -20,17 +20,18 @@ void printBanner() {
 void printUsage(const char* progName) {
     std::cerr << "Usage: " << progName << " [options]\n";
     std::cerr << "       " << progName << " --interactive   (or run with no arguments for interactive terminal)\n";
-    std::cerr << "       " << progName << " --input <genome.fasta> --db <markers.csv> [options]\n";
+    std::cerr << "       " << progName << " --scan <genome.fasta> [--db <markers.csv>] [options]\n";
+    std::cerr << "       " << progName << " <genome.fasta> [<markers.csv>]\n";
     std::cerr << "Options:\n";
-    std::cerr << "  --input <file>, -in   Input FASTA genome sequence file\n";
-    std::cerr << "  --db <file>, -d       AMR reference database CSV/TSV file\n";
-    std::cerr << "  --fuzzy               Enable mutation-tolerant Hamming Distance <= 1 matching (default)\n";
-    std::cerr << "  --exact               Force strict exact matching only (Hamming = 0)\n";
-    std::cerr << "  --async               Enable concurrent multithreaded chunk processing (default)\n";
-    std::cerr << "  --serial              Run single-threaded sequential scoring\n";
-    std::cerr << "  --confidence <val>    Set prediction confidence threshold percentage (default: 75.0)\n";
-    std::cerr << "  --interactive, -i     Launch direct interactive terminal test system\n";
-    std::cerr << "  --help, -h            Show this usage guide\n\n";
+    std::cerr << "  --scan <file>, --input, -in   Input FASTA genome sequence file to scan\n";
+    std::cerr << "  --db <file>, -d               AMR reference database CSV/TSV file (default: data/markers_card_top.csv)\n";
+    std::cerr << "  --fuzzy                       Enable mutation-tolerant Hamming Distance <= 1 matching (default)\n";
+    std::cerr << "  --exact                       Force strict exact matching only (Hamming = 0)\n";
+    std::cerr << "  --async                       Enable concurrent multithreaded chunk processing (default)\n";
+    std::cerr << "  --serial                      Run single-threaded sequential scoring\n";
+    std::cerr << "  --confidence <val>            Set prediction confidence threshold percentage (default: 75.0)\n";
+    std::cerr << "  --interactive, -i             Launch direct interactive terminal test system\n";
+    std::cerr << "  --help, -h                    Show this usage guide\n\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -41,13 +42,26 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    std::string fastaFile = "sample_real.fasta";
-    std::string amrDbFile = "markers_large.csv";
+    std::string fastaFile = "data/sample_real.fasta";
+    if (!std::ifstream(fastaFile).good()) {
+        fastaFile = "sample_real.fasta";
+    }
+    std::string amrDbFile = "data/markers_card_top.csv";
+    if (!std::ifstream(amrDbFile).good()) {
+        amrDbFile = "markers_card_top.csv";
+        if (!std::ifstream(amrDbFile).good()) {
+            amrDbFile = "data/markers_large.csv";
+            if (!std::ifstream(amrDbFile).good()) {
+                amrDbFile = "markers_large.csv";
+            }
+        }
+    }
     bool enableFuzzy = true;
     bool enableAsync = true;
     bool interactiveMode = false;
     double confidenceThreshold = 75.0;
 
+    std::vector<std::string> positionalArgs;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--help" || arg == "-h") {
@@ -55,7 +69,7 @@ int main(int argc, char* argv[]) {
             return 0;
         } else if (arg == "--interactive" || arg == "-i") {
             interactiveMode = true;
-        } else if ((arg == "--input" || arg == "-in") && i + 1 < argc) {
+        } else if ((arg == "--input" || arg == "-in" || arg == "--scan" || arg == "-s") && i + 1 < argc) {
             fastaFile = argv[++i];
         } else if ((arg == "--db" || arg == "-d") && i + 1 < argc) {
             amrDbFile = argv[++i];
@@ -69,11 +83,24 @@ int main(int argc, char* argv[]) {
             enableAsync = true;
         } else if (arg == "--confidence" && i + 1 < argc) {
             confidenceThreshold = std::stod(argv[++i]);
-        } else if (i == 1 && arg[0] != '-') {
-            fastaFile = arg;
-        } else if (i == 2 && arg[0] != '-') {
-            amrDbFile = arg;
+        } else if (arg[0] != '-') {
+            positionalArgs.push_back(arg);
         }
+    }
+
+    if (positionalArgs.size() >= 1) {
+        fastaFile = positionalArgs[0];
+    }
+    if (positionalArgs.size() >= 2) {
+        amrDbFile = positionalArgs[1];
+    }
+
+    // Auto-resolve paths inside data/ directory if not found in current directory
+    if (!std::ifstream(fastaFile).good() && std::ifstream("data/" + fastaFile).good()) {
+        fastaFile = "data/" + fastaFile;
+    }
+    if (!std::ifstream(amrDbFile).good() && std::ifstream("data/" + amrDbFile).good()) {
+        amrDbFile = "data/" + amrDbFile;
     }
 
     if (interactiveMode) {
@@ -105,10 +132,12 @@ int main(int argc, char* argv[]) {
         std::cout << "    -> Fast-Rejection Bloom Filter initialized (" << trie.getBloomFilter().getBitSize() << " bits)\n";
         std::cout << "    -> Load & Index Time: " << std::fixed << std::setprecision(3) << dbTimeMs << " ms\n\n";
 
-        // 2. Initialize Zero-Copy FASTA Parser & Scoring Engine
         std::cout << "[*] Initializing Zero-Copy Sequence Ingestion for: " << fastaFile << "...\n";
         FastaMmapParser parser(fastaFile);
         ScoringEngine engine(trie, db, enableFuzzy, confidenceThreshold);
+
+        // Render visual ASCII DNA Helix scanning animation
+        PredictorEngine::renderAsciiScanAnimation(fastaFile, parser.getFileSize());
 
         const size_t KMER_LENGTH = 21;
         const size_t CHUNK_SIZE = 4096;
@@ -146,6 +175,11 @@ int main(int argc, char* argv[]) {
         auto predictions = engine.getPredictor().evaluatePredictionsWithModel(db, X);
         std::string report = engine.getPredictor().generateASCIIReport(predictions, scanTimeMs, totalBytesParsed);
         std::cout << report;
+
+        // 4. Generate & Display Biosecurity Trust Score Card
+        TrustScoreMetrics trustMetrics = engine.getPredictor().computeTrustScore(
+            predictions, engine.getExactHits(), engine.getMutatedHits(), X, totalBytesParsed);
+        std::cout << engine.getPredictor().generateTrustScoreCard(trustMetrics);
 
         auto totalEnd = std::chrono::high_resolution_clock::now();
         double totalTimeMs = std::chrono::duration<double, std::milli>(totalEnd - totalStart).count();

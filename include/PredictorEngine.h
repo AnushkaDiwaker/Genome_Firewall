@@ -32,6 +32,20 @@ struct DrugPrediction {
     std::string clinicalRecommendation;
 };
 
+struct TrustScoreMetrics {
+    double overallScore{0.0};       // 0.0 to 100.0%
+    double sequenceFidelity{0.0};   // Ratio of exact hits vs mutated hits
+    double kmerDepthQuality{0.0};   // K-mer coverage quality
+    double decisionMargin{0.0};     // Model entropy / certainty margin
+    double signalToNoiseRatio{0.0}; // Empirical SNR in dB
+    double falseDiscoveryRate{0.0}; // Estimated FDR
+    int exactHits{0};
+    int mutatedHits{0};
+    int totalActiveFeatures{0};
+    std::string clinicalVerdict;
+    std::string starsRating;
+};
+
 class PredictorEngine {
 public:
     explicit PredictorEngine(const AMRTrie& trie, double confidenceThreshold = 75.0);
@@ -49,6 +63,17 @@ public:
     std::vector<DrugPrediction> evaluatePredictionsWithModel(const AMRDatabase& db, const std::vector<int>& featureVector) const;
 
     std::string generateASCIIReport(const std::vector<DrugPrediction>& predictions, double elapsedMs, size_t totalBytesScanned) const;
+
+    // Biosecurity Trust Score computation & ASCII Card
+    TrustScoreMetrics computeTrustScore(const std::vector<DrugPrediction>& predictions,
+                                        int exactHits, int mutatedHits,
+                                        const std::vector<int>& featureVector,
+                                        size_t totalBytesScanned) const;
+
+    std::string generateTrustScoreCard(const TrustScoreMetrics& metrics) const;
+
+    // Visual ASCII DNA Helix & Scanning Telemetry Animation
+    static void renderAsciiScanAnimation(const std::string& targetName, size_t fileSizeBytes);
 
     const LogisticRegressor& getModel() const { return regressor; }
 

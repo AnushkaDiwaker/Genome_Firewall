@@ -23,3 +23,14 @@ data/shortname_*.tsv
 .idea/
 .DS_Store
 Thumbs.db
+compile_flags.txt
+NUL
+
+# Academic evaluation, Viva & PBL files (keep local, do not push)
+*viva*
+*VIVA*
+*Viva*
+*pbl*
+*PBL*
+*GEU*
+

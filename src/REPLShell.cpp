@@ -1,5 +1,19 @@
+#if __has_include("REPLShell.h")
 #include "REPLShell.h"
+#elif __has_include("../include/REPLShell.h")
+#include "../include/REPLShell.h"
+#else
+#include "include/REPLShell.h"
+#endif
+
+#if __has_include("FastaMmapParser.h")
 #include "FastaMmapParser.h"
+#elif __has_include("../include/FastaMmapParser.h")
+#include "../include/FastaMmapParser.h"
+#else
+#include "include/FastaMmapParser.h"
+#endif
+
 #include <iostream>
 #include <sstream>
 #include <chrono>
@@ -9,10 +23,17 @@
 #include <fstream>
 
 REPLShell::REPLShell() {
-    // Check if markers_large.csv exists, otherwise fall back to markers.csv
-    std::ifstream testLarge("markers_large.csv");
-    if (testLarge.good()) {
+    // Check if markers_card_top.csv, markers_large.csv, or markers.csv exist in data/ or root
+    if (std::ifstream("data/markers_card_top.csv").good()) {
+        currentDbFile = "data/markers_card_top.csv";
+    } else if (std::ifstream("markers_card_top.csv").good()) {
+        currentDbFile = "markers_card_top.csv";
+    } else if (std::ifstream("data/markers_large.csv").good()) {
+        currentDbFile = "data/markers_large.csv";
+    } else if (std::ifstream("markers_large.csv").good()) {
         currentDbFile = "markers_large.csv";
+    } else if (std::ifstream("data/markers.csv").good()) {
+        currentDbFile = "data/markers.csv";
     } else {
         currentDbFile = "markers.csv";
     }
@@ -89,16 +110,25 @@ void REPLShell::printStatus() {
 void REPLShell::executeScan(const std::string& fastaFile) {
     std::string targetFile = fastaFile;
     if (targetFile.empty()) {
-        std::cout << "Enter FASTA file path [default: sample_real.fasta]: " << std::flush;
+        std::cout << "Enter FASTA file path [default: data/sample_real.fasta]: " << std::flush;
         std::getline(std::cin, targetFile);
-        if (targetFile.empty()) targetFile = "sample_real.fasta";
+        if (targetFile.empty()) {
+            if (std::ifstream("data/sample_real.fasta").good()) targetFile = "data/sample_real.fasta";
+            else targetFile = "sample_real.fasta";
+        }
     }
 
-    // Verify file exists
+    // Verify file exists, checking data/ subfolder if not found directly
     std::ifstream checkFile(targetFile);
     if (!checkFile.good()) {
-        std::cerr << "[!] Error: Cannot open file '" << targetFile << "'. Please verify the path.\n";
-        return;
+        std::string altPath = "data/" + targetFile;
+        std::ifstream checkAlt(altPath);
+        if (checkAlt.good()) {
+            targetFile = altPath;
+        } else {
+            std::cerr << "[!] Error: Cannot open file '" << targetFile << "'. Please verify the path.\n";
+            return;
+        }
     }
     checkFile.close();
 
@@ -117,6 +147,9 @@ void REPLShell::executeScan(const std::string& fastaFile) {
         std::cout << "[+] Memory-Map Status : " 
                   << (parser.isMemoryMapped() ? "Zero-Copy OS Memory-Mapped View Active" : "Fallback Stream Active")
                   << " (" << parser.getFileSize() << " bytes mapped)\n";
+
+        // Render visual ASCII DNA Helix scanning animation
+        PredictorEngine::renderAsciiScanAnimation(targetFile, parser.getFileSize());
 
         const size_t KMER_LEN = 21;
         const size_t CHUNK_SZ = 4096;
@@ -151,6 +184,11 @@ void REPLShell::executeScan(const std::string& fastaFile) {
         std::string report = engine.getPredictor().generateASCIIReport(predictions, elapsedMs, totalBytes);
         std::cout << report;
 
+        // Print Biosecurity Trust Score Card
+        TrustScoreMetrics trustMetrics = engine.getPredictor().computeTrustScore(
+            predictions, engine.getExactHits(), engine.getMutatedHits(), X, totalBytes);
+        std::cout << engine.getPredictor().generateTrustScoreCard(trustMetrics);
+
         // Print Test Scores breakdown
         std::cout << "\n+--- TEST SCORES & HIT TELEMETRY -----------------------------------+\n";
         std::cout << "  Exact Marker Hits    : " << engine.getExactHits() << " (100% nucleotide identity)\n";
@@ -160,6 +198,7 @@ void REPLShell::executeScan(const std::string& fastaFile) {
         for (int v : X) if (v > 0) activeFeatures++;
         std::cout << "  Features Triggered   : " << activeFeatures << " of " << X.size() 
                   << " AMR determinants active in Feature Vector X\n";
+        std::cout << "  Chunks Processed     : " << chunkCount << " (" << totalBytes << " bytes scanned)\n";
         std::cout << "+-------------------------------------------------------------------+\n\n";
 
         // Cache results
@@ -230,6 +269,11 @@ void REPLShell::executeSequenceScan(const std::string& rawSeq) {
     auto predictions = engine.getPredictor().evaluatePredictionsWithModel(db, X);
     std::string report = engine.getPredictor().generateASCIIReport(predictions, elapsedMs, cleanSeq.length());
     std::cout << report;
+
+    // Print Biosecurity Trust Score Card
+    TrustScoreMetrics trustMetrics = engine.getPredictor().computeTrustScore(
+        predictions, engine.getExactHits(), engine.getMutatedHits(), X, cleanSeq.length());
+    std::cout << engine.getPredictor().generateTrustScoreCard(trustMetrics);
 
     std::cout << "\n+--- TEST SCORES FOR DIRECT SEQUENCE -------------------------------+\n";
     std::cout << "  Exact Matches        : " << engine.getExactHits() << "\n";
@@ -305,15 +349,24 @@ void REPLShell::executeTrieQuery(const std::string& kmer) {
 void REPLShell::executeMmapDiagnostics(const std::string& fastaFile) {
     std::string targetFile = fastaFile;
     if (targetFile.empty()) {
-        std::cout << "Enter FASTA file path to benchmark memory mapping [default: sample_real.fasta]: " << std::flush;
+        std::cout << "Enter FASTA file path to benchmark memory mapping [default: data/sample_real.fasta]: " << std::flush;
         std::getline(std::cin, targetFile);
-        if (targetFile.empty()) targetFile = "sample_real.fasta";
+        if (targetFile.empty()) {
+            if (std::ifstream("data/sample_real.fasta").good()) targetFile = "data/sample_real.fasta";
+            else targetFile = "sample_real.fasta";
+        }
     }
 
     std::ifstream checkFile(targetFile);
     if (!checkFile.good()) {
-        std::cerr << "[!] Error: File '" << targetFile << "' not found.\n";
-        return;
+        std::string altPath = "data/" + targetFile;
+        std::ifstream checkAlt(altPath);
+        if (checkAlt.good()) {
+            targetFile = altPath;
+        } else {
+            std::cerr << "[!] Error: File '" << targetFile << "' not found.\n";
+            return;
+        }
     }
     checkFile.close();
 
